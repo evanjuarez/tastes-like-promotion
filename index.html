@@ -1,0 +1,1016 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Championship Final Day Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=JetBrains+Mono:wght@300;400;500;700;800&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,700;0,9..144,900;1,9..144,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink:   #0b0f1a;
+    --paper: #f2ece0;
+    --line:  rgba(255,255,255,0.13);
+    --grid:  rgba(255,255,255,0.04);
+    /* Millwall */
+    --mill-accent: #d4a437;
+    --mill-bg:     rgba(0, 20, 137, 0.18);
+    --mill-glow:   rgba(0, 51, 255, 0.14);
+    /* Wrexham */
+    --wrex-accent: #e8c547;
+    --wrex-bg:     rgba(200, 16, 46, 0.18);
+    --wrex-glow:   rgba(200, 16, 46, 0.14);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    background: var(--ink);
+    color: var(--paper);
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+
+  body {
+    background-image:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 48px 48px;
+  }
+
+  /* ── GRAIN ── */
+  body::after {
+    content: "";
+    position: fixed; inset: 0;
+    pointer-events: none; z-index: 100; opacity: 0.05;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  }
+
+  /* ── GLOBAL HEADER ── */
+  .global-header {
+    border-bottom: 2px solid var(--paper);
+    padding: 14px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+  }
+  .global-header .title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 20px;
+    letter-spacing: 0.06em;
+  }
+  .global-header .meta { display: flex; gap: 24px; opacity: 0.75; }
+  .live { display: inline-flex; align-items: center; gap: 8px; }
+  .pulse {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #d4a437;
+    animation: pulse 1.6s infinite;
+  }
+  @keyframes pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(212,164,55,0.7); }
+    70%  { box-shadow: 0 0 0 10px rgba(212,164,55,0); }
+    100% { box-shadow: 0 0 0 0 rgba(212,164,55,0); }
+  }
+
+  /* ── SETUP BANNER ── */
+  .status-banner {
+    margin: 12px 32px;
+    padding: 10px 16px;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    border: 1px solid var(--line);
+    background: rgba(0,0,0,0.25);
+    display: none;
+  }
+  .status-banner.show { display: block; }
+  .status-banner.err  { border-color: #c8442a; color: #fca99a; }
+
+  /* ── TWO-COLUMN SPLIT ── */
+  .split {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    min-height: calc(100vh - 60px);
+  }
+
+  .panel {
+    padding: 32px 36px 64px;
+    border-right: 1px solid var(--line);
+    position: relative;
+  }
+  .panel:last-child { border-right: none; }
+
+  /* Subtle tinted glow per panel */
+  .panel.mill { background: radial-gradient(ellipse at top left, var(--mill-glow), transparent 60%); }
+  .panel.wrex { background: radial-gradient(ellipse at top right, var(--wrex-glow), transparent 60%); }
+
+  /* ── PANEL HEADER ── */
+  .panel-head {
+    margin-bottom: 28px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid var(--line);
+  }
+  .panel-kicker {
+    font-size: 9px;
+    letter-spacing: 0.38em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+    display: block;
+  }
+  .mill .panel-kicker { color: var(--mill-accent); }
+  .wrex .panel-kicker { color: var(--wrex-accent); }
+
+  .panel-name {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(44px, 6vw, 80px);
+    line-height: 0.88;
+    letter-spacing: -0.01em;
+  }
+  .panel-name .sub {
+    display: block;
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 0.55em;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+  }
+  .mill .panel-name .sub { color: var(--mill-accent); }
+  .wrex .panel-name .sub { color: var(--wrex-accent); }
+
+  .panel-desc {
+    margin-top: 14px;
+    font-size: 12px;
+    line-height: 1.55;
+    opacity: 0.75;
+    border-left: 2px solid;
+    padding-left: 14px;
+  }
+  .mill .panel-desc { border-color: var(--mill-accent); }
+  .wrex .panel-desc { border-color: var(--wrex-accent); }
+
+  /* ── HERO PROBABILITY ── */
+  .hero {
+    margin-bottom: 28px;
+    padding: 28px 24px 22px;
+    border: 1px solid var(--line);
+    position: relative;
+  }
+  .hero::before {
+    content: attr(data-label);
+    position: absolute;
+    top: -8px; left: 18px;
+    background: var(--ink);
+    padding: 0 10px;
+    font-size: 9px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+  }
+  .mill .hero::before { color: var(--mill-accent); }
+  .wrex .hero::before { color: var(--wrex-accent); }
+
+  .mill .hero { background: var(--mill-bg); }
+  .wrex .hero { background: var(--wrex-bg); }
+
+  .big-pct {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(80px, 11vw, 160px);
+    line-height: 0.86;
+    font-variant-numeric: tabular-nums;
+    transition: color 0.4s;
+  }
+  .mill .big-pct { color: var(--paper); }
+  .wrex .big-pct { color: var(--paper); }
+  .big-pct .pct {
+    font-size: 0.42em;
+    font-family: 'Fraunces', serif;
+    font-weight: 900;
+    font-style: italic;
+    vertical-align: top;
+    margin-left: 4px;
+  }
+  .mill .big-pct .pct { color: var(--mill-accent); }
+  .wrex .big-pct .pct { color: var(--wrex-accent); }
+
+  .hero-meta {
+    display: flex;
+    gap: 18px;
+    margin-top: 10px;
+    font-size: 11px;
+    flex-wrap: wrap;
+  }
+  .hero-meta .up   { color: #6ee7b7; }
+  .hero-meta .down { color: #fb7185; }
+  .hero-meta .flat { opacity: 0.55; }
+
+  .statement {
+    margin-top: 14px;
+    font-family: 'Fraunces', serif;
+    font-size: 15px;
+    line-height: 1.45;
+    font-weight: 400;
+    opacity: 0.9;
+  }
+  .statement em { font-style: italic; font-weight: 700; }
+  .mill .statement em { color: var(--mill-accent); }
+  .wrex .statement em { color: var(--wrex-accent); }
+  .statement .pct-inline {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.25em;
+    font-style: normal;
+    letter-spacing: 0;
+  }
+  .mill .statement .pct-inline { color: var(--mill-accent); }
+  .wrex .statement .pct-inline { color: var(--wrex-accent); }
+
+  /* ── SECTION HEADS ── */
+  .sec-head {
+    display: flex; align-items: baseline; gap: 10px;
+    margin: 24px 0 12px;
+  }
+  .sec-head .num {
+    font-family: 'Fraunces', serif;
+    font-style: italic; font-weight: 900; font-size: 12px;
+  }
+  .mill .sec-head .num { color: var(--mill-accent); }
+  .wrex .sec-head .num { color: var(--wrex-accent); }
+  .sec-head h2 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 20px; letter-spacing: 0.04em; font-weight: 400;
+  }
+  .sec-head .rule { flex: 1; height: 1px; background: var(--line); }
+
+  /* ── LEGS (the breakdown bars) ── */
+  .legs { display: flex; flex-direction: column; gap: 12px; }
+  .leg {
+    border: 1px solid var(--line);
+    padding: 14px 16px;
+    background: rgba(0,0,0,0.2);
+  }
+  .leg-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+  .leg-tag {
+    font-size: 9px;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    opacity: 0.7;
+  }
+  .leg-pct {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 26px;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .mill .leg-pct { color: var(--mill-accent); }
+  .wrex .leg-pct { color: var(--wrex-accent); }
+  .leg-label {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 16px; letter-spacing: 0.02em;
+    margin-bottom: 8px;
+  }
+  .leg-label .v {
+    font-family: 'Fraunces', serif;
+    font-weight: 900; font-style: italic;
+    font-size: 0.8em; margin: 0 4px;
+  }
+  .mill .leg-label .v { color: var(--mill-accent); }
+  .wrex .leg-label .v { color: var(--wrex-accent); }
+  .leg-bar {
+    height: 5px;
+    background: rgba(255,255,255,0.07);
+    overflow: hidden; margin-bottom: 8px;
+  }
+  .leg-bar > span {
+    display: block; height: 100%; width: 0%;
+    transition: width 0.6s cubic-bezier(.2,.7,.2,1);
+  }
+  .mill .leg-bar > span { background: var(--mill-accent); }
+  .wrex .leg-bar > span { background: var(--wrex-accent); }
+  .leg-note {
+    font-size: 10px; line-height: 1.4;
+    opacity: 0.55;
+  }
+
+  /* Combined result leg */
+  .leg.result {
+    border-color: rgba(255,255,255,0.3);
+  }
+  .mill .leg.result { background: rgba(212,164,55,0.08); }
+  .wrex .leg.result { background: rgba(232,197,71,0.08); }
+
+  /* ── MATCH CARDS (Wrexham three-way) ── */
+  .match-cards { display: flex; flex-direction: column; gap: 10px; }
+  .match-card {
+    border: 1px solid var(--line);
+    padding: 12px 16px;
+    background: rgba(0,0,0,0.18);
+  }
+  .match-card-head {
+    font-size: 9px; letter-spacing: 0.28em;
+    text-transform: uppercase; opacity: 0.6;
+    margin-bottom: 6px;
+  }
+  .match-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 18px; letter-spacing: 0.02em;
+    margin-bottom: 8px;
+  }
+  .match-title .v {
+    font-family: 'Fraunces', serif;
+    font-weight: 900; font-style: italic;
+    font-size: 0.8em; margin: 0 4px;
+  }
+  .wrex .match-title .v { color: var(--wrex-accent); }
+  .match-wdl {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
+  .wdl-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .wdl-label { font-size: 9px; letter-spacing: 0.2em; opacity: 0.55; text-transform: uppercase; }
+  .wdl-val {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 15px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ── FIXTURES (bottom of each panel) ── */
+  .fixtures { display: flex; flex-direction: column; gap: 0; border: 1px solid var(--line); }
+  .fix {
+    padding: 12px 16px;
+    border-bottom: 1px dashed var(--line);
+  }
+  .fix:last-child { border-bottom: none; }
+  .fix-when {
+    font-size: 9px; letter-spacing: 0.26em;
+    text-transform: uppercase; opacity: 0.55; margin-bottom: 4px;
+  }
+  .fix-match {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 18px; letter-spacing: 0.02em;
+  }
+  .fix-match .v {
+    font-family: 'Fraunces', serif;
+    font-weight: 900; font-style: italic;
+    font-size: 0.8em; margin: 0 4px;
+  }
+  .mill .fix-match .v { color: var(--mill-accent); }
+  .wrex .fix-match .v { color: var(--wrex-accent); }
+  .fix-ctx { font-size: 11px; opacity: 0.65; margin-top: 4px; line-height: 1.4; }
+
+  /* ── SOURCE ── */
+  .src {
+    margin-top: 20px;
+    font-size: 9px; letter-spacing: 0.22em;
+    text-transform: uppercase; opacity: 0.5;
+    border-top: 1px dashed var(--line);
+    padding-top: 10px;
+  }
+  .src a { text-decoration: none; }
+  .mill .src a { color: var(--mill-accent); }
+  .wrex .src a { color: var(--wrex-accent); }
+
+  /* ── GLOBAL FOOTER ── */
+  .global-footer {
+    border-top: 1px solid var(--line);
+    padding: 14px 32px;
+    display: flex; justify-content: space-between;
+    font-size: 9px; letter-spacing: 0.2em;
+    text-transform: uppercase; opacity: 0.45;
+  }
+
+  /* ── MOBILE ── */
+  @media (max-width: 900px) {
+    .split { grid-template-columns: 1fr; }
+    .panel { border-right: none; border-bottom: 1px solid var(--line); padding: 24px 20px 48px; }
+    .global-header { padding: 12px 20px; font-size: 9px; }
+    .global-footer { padding: 12px 20px; flex-direction: column; gap: 4px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════ GLOBAL HEADER ══════════════════════════════ -->
+<header class="global-header">
+  <span class="title">EFL Championship · Final Day · 02 May 2026</span>
+  <div class="meta">
+    <span id="last-updated">—</span>
+    <span class="live"><span class="pulse"></span> Live · Kalshi</span>
+  </div>
+</header>
+
+<div id="status" class="status-banner"></div>
+
+<!-- ═══════════════════════════════ TWO-PANEL SPLIT ════════════════════════════ -->
+<div class="split">
+
+  <!-- ▓▓▓▓▓▓▓▓▓▓▓  MILLWALL PANEL  ▓▓▓▓▓▓▓▓▓▓▓ -->
+  <div class="panel mill">
+
+    <div class="panel-head">
+      <span class="panel-kicker">Automatic Promotion · Second Place</span>
+      <div class="panel-name">
+        Will<br/>
+        <span class="sub">The Lions</span><br/>
+        Go Up?
+      </div>
+      <p class="panel-desc">
+        Millwall sit 2nd on 80 pts, one behind Ipswich. To go up automatically they must beat Oxford <strong>and</strong> Ipswich must drop points against QPR.
+      </p>
+    </div>
+
+    <!-- Hero -->
+    <div class="hero" data-label="Millwall · Automatic Promotion · Joint Probability">
+      <div class="big-pct" id="mill-big-pct">— <span class="pct">%</span></div>
+      <div class="hero-meta">
+        <span id="mill-delta" class="flat">Δ since load: —</span>
+        <span id="mill-raw" class="flat">Awaiting legs</span>
+      </div>
+      <p class="statement" id="mill-statement">Fetching live odds…</p>
+    </div>
+
+    <!-- Breakdown -->
+    <div class="sec-head"><span class="num">01 /</span><h2>The Math</h2><span class="rule"></span></div>
+    <div class="legs">
+      <div class="leg">
+        <div class="leg-head">
+          <span class="leg-tag">Leg 1 · Millwall must win</span>
+          <span class="leg-pct" id="mill-leg1-pct">— %</span>
+        </div>
+        <div class="leg-label">Millwall <span class="v">v</span> Oxford United</div>
+        <div class="leg-bar"><span id="mill-leg1-bar"></span></div>
+        <div class="leg-note" id="mill-leg1-note">P(Millwall win) from Kalshi</div>
+      </div>
+      <div class="leg">
+        <div class="leg-head">
+          <span class="leg-tag">Leg 2 · Ipswich must NOT win</span>
+          <span class="leg-pct" id="mill-leg2-pct">— %</span>
+        </div>
+        <div class="leg-label">Ipswich <span class="v">v</span> QPR</div>
+        <div class="leg-bar"><span id="mill-leg2-bar"></span></div>
+        <div class="leg-note" id="mill-leg2-note">1 − P(Ipswich win)</div>
+      </div>
+      <div class="leg result">
+        <div class="leg-head">
+          <span class="leg-tag">Combined · P(Win) × P(Ipswich slip)</span>
+          <span class="leg-pct" id="mill-combined-pct">— %</span>
+        </div>
+        <div class="leg-label">Millwall Promoted</div>
+        <div class="leg-bar"><span id="mill-combined-bar"></span></div>
+        <div class="leg-note">Independence assumed — simultaneous kick-offs, no shared participants.</div>
+      </div>
+    </div>
+
+    <!-- Fixtures -->
+    <div class="sec-head"><span class="num">02 /</span><h2>Fixtures</h2><span class="rule"></span></div>
+    <div class="fixtures">
+      <div class="fix">
+        <div class="fix-when">Sat 12:30 · The Den</div>
+        <div class="fix-match">Millwall <span class="v">v</span> Oxford United</div>
+        <div class="fix-ctx">Oxford already relegated. Millwall must win — a draw isn't enough regardless of Ipswich.</div>
+      </div>
+      <div class="fix">
+        <div class="fix-when">Sat 12:30 · Portman Road</div>
+        <div class="fix-match">Ipswich <span class="v">v</span> QPR</div>
+        <div class="fix-ctx">Ipswich win the automatic spot with a win. QPR mid-table, little to play for. Lions need a slip-up.</div>
+      </div>
+    </div>
+
+    <div class="src">
+      Source · <a href="https://kalshi.com/category/sports/soccer/efl-championship/game" target="_blank" rel="noopener">Kalshi — EFL Championship match markets ↗</a>
+    </div>
+
+  </div><!-- /mill panel -->
+
+
+  <!-- ▓▓▓▓▓▓▓▓▓▓▓  WREXHAM PANEL  ▓▓▓▓▓▓▓▓▓▓▓ -->
+  <div class="panel wrex">
+
+    <div class="panel-head">
+      <span class="panel-kicker">Playoff Qualification · 6th Place</span>
+      <div class="panel-name">
+        Will<br/>
+        <span class="sub">The Red Dragons</span><br/>
+        Make It?
+      </div>
+      <p class="panel-desc">
+        Wrexham sit 6th on 70 pts, level with Hull (+3 GD) and one point above Derby (+9 GD). They must finish above <em>both</em> rivals — on points, then GD, then goals scored.
+      </p>
+    </div>
+
+    <!-- Hero -->
+    <div class="hero" data-label="Wrexham · Playoff Qualification · Estimated Probability">
+      <div class="big-pct" id="wrex-big-pct">— <span class="pct">%</span></div>
+      <div class="hero-meta">
+        <span id="wrex-delta" class="flat">Δ since load: —</span>
+        <span id="wrex-raw" class="flat">Awaiting legs</span>
+      </div>
+      <p class="statement" id="wrex-statement">Fetching live odds…</p>
+    </div>
+
+    <!-- Three match cards -->
+    <div class="sec-head"><span class="num">01 /</span><h2>Three Live Markets</h2><span class="rule"></span></div>
+    <div class="match-cards">
+      <div class="match-card">
+        <div class="match-card-head">Leg 1 · Wrexham</div>
+        <div class="match-title">Wrexham <span class="v">v</span> Middlesbrough</div>
+        <div class="match-wdl">
+          <div class="wdl-item"><span class="wdl-label">Win</span><span class="wdl-val" id="wrex-w-win">— %</span></div>
+          <div class="wdl-item"><span class="wdl-label">Draw</span><span class="wdl-val" id="wrex-w-draw">— %</span></div>
+          <div class="wdl-item"><span class="wdl-label">Loss</span><span class="wdl-val" id="wrex-w-loss">— %</span></div>
+        </div>
+      </div>
+      <div class="match-card">
+        <div class="match-card-head">Leg 2 · Hull City</div>
+        <div class="match-title">Hull City <span class="v">v</span> Norwich</div>
+        <div class="match-wdl">
+          <div class="wdl-item"><span class="wdl-label">Win</span><span class="wdl-val" id="wrex-h-win">— %</span></div>
+          <div class="wdl-item"><span class="wdl-label">Draw</span><span class="wdl-val" id="wrex-h-draw">— %</span></div>
+          <div class="wdl-item"><span class="wdl-label">Loss</span><span class="wdl-val" id="wrex-h-loss">— %</span></div>
+        </div>
+      </div>
+      <div class="match-card">
+        <div class="match-card-head">Leg 3 · Derby County</div>
+        <div class="match-title">Derby <span class="v">v</span> Sheffield Utd</div>
+        <div class="match-wdl">
+          <div class="wdl-item"><span class="wdl-label">Win</span><span class="wdl-val" id="wrex-d-win">— %</span></div>
+          <div class="wdl-item"><span class="wdl-label">Draw</span><span class="wdl-val" id="wrex-d-draw">— %</span></div>
+          <div class="wdl-item"><span class="wdl-label">Loss</span><span class="wdl-val" id="wrex-d-loss">— %</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pair comparison legs -->
+    <div class="sec-head"><span class="num">02 /</span><h2>Must Beat Both</h2><span class="rule"></span></div>
+    <div class="legs">
+      <div class="leg">
+        <div class="leg-head">
+          <span class="leg-tag">vs Hull · Same points, Wrex +1 GD</span>
+          <span class="leg-pct" id="wrex-vs-hul-pct">— %</span>
+        </div>
+        <div class="leg-label">P(Wrexham finishes above Hull)</div>
+        <div class="leg-bar"><span id="wrex-vs-hul-bar"></span></div>
+        <div class="leg-note">Hull win the H2H tiebreak if everything else is level.</div>
+      </div>
+      <div class="leg">
+        <div class="leg-head">
+          <span class="leg-tag">vs Derby · Wrex +1 pt, Derby +5 GD</span>
+          <span class="leg-pct" id="wrex-vs-der-pct">— %</span>
+        </div>
+        <div class="leg-label">P(Wrexham finishes above Derby)</div>
+        <div class="leg-bar"><span id="wrex-vs-der-bar"></span></div>
+        <div class="leg-note">Derby's GD cushion matters if both teams draw or lose.</div>
+      </div>
+      <div class="leg result">
+        <div class="leg-head">
+          <span class="leg-tag">Combined · P(above Hull) × P(above Derby)</span>
+          <span class="leg-pct" id="wrex-combined-pct">— %</span>
+        </div>
+        <div class="leg-label">Wrexham In The Playoffs</div>
+        <div class="leg-bar"><span id="wrex-combined-bar"></span></div>
+        <div class="leg-note">W/D/L from Kalshi · GD tiebreaks via Poisson goal model (season λ) · independence assumed.</div>
+      </div>
+    </div>
+
+    <!-- Fixtures -->
+    <div class="sec-head"><span class="num">03 /</span><h2>Fixtures</h2><span class="rule"></span></div>
+    <div class="fixtures">
+      <div class="fix">
+        <div class="fix-when">Sat 12:30 · STōK Cae Ras</div>
+        <div class="fix-match">Wrexham <span class="v">v</span> Middlesbrough</div>
+        <div class="fix-ctx">Boro still in the auto-promotion race — will come hard. Toughest of the three fixture draws.</div>
+      </div>
+      <div class="fix">
+        <div class="fix-when">Sat 12:30 · MKM Stadium</div>
+        <div class="fix-match">Hull City <span class="v">v</span> Norwich</div>
+        <div class="fix-ctx">Hull winless in 6. Norwich the league's best form team outside the top 6.</div>
+      </div>
+      <div class="fix">
+        <div class="fix-when">Sat 12:30 · Pride Park</div>
+        <div class="fix-match">Derby <span class="v">v</span> Sheffield Utd</div>
+        <div class="fix-ctx">Easiest fixture for any of the three — Sheffield United 15th with nothing to play for.</div>
+      </div>
+    </div>
+
+    <div class="src">
+      Source · <a href="https://kalshi.com/category/sports/soccer/efl-championship/game" target="_blank" rel="noopener">Kalshi — EFL Championship match markets ↗</a>
+      · GD model: Poisson(season λ)
+    </div>
+
+  </div><!-- /wrex panel -->
+
+</div><!-- /split -->
+
+<footer class="global-footer">
+  <span>Data: Kalshi public API · Proxy: Cloudflare Worker · Refreshes every 15s</span>
+  <span>Not financial advice · No affiliation with Millwall FC or Wrexham AFC</span>
+</footer>
+
+<!-- ═══════════════════════════════ JAVASCRIPT ══════════════════════════════════ -->
+<script>
+(() => {
+  // ── CONFIG ───────────────────────────────────────────────────────────
+  const PROXY   = "https://efl-updates.evanjuarez77.workers.dev";
+  const SERIES  = "KXEFLCHAMPIONSHIPGAME";
+  const POLL_MS = 15000;
+
+  // Fetch both open AND closed/settled markets so we get in-progress and
+  // recently-finished games. Two parallel requests, results merged.
+  const URL_OPEN   = `${PROXY}/trade-api/v2/markets?series_ticker=${SERIES}&status=open&limit=200`;
+  const URL_CLOSED = `${PROXY}/trade-api/v2/markets?series_ticker=${SERIES}&status=closed&limit=200`;
+
+  // ── PRE-MATCH STANDINGS (for Wrexham GD model) ───────────────────────
+  const WREX = { pts: 70, gd: +4, gs: 67 };
+  const HUL  = { pts: 70, gd: +3, gs: 68 };
+  const DER  = { pts: 69, gd: +9, gs: 66 };
+
+  // ── HELPERS ──────────────────────────────────────────────────────────
+  const $   = id => document.getElementById(id);
+  const pct = p  => p === null ? "—" : `${(p * 100).toFixed(p > 0.99 || p < 0.01 ? 1 : 0)}%`;
+
+  let firstMill = null, firstWrex = null;
+
+  function setStatus(msg, isErr = false) {
+    const el = $("status");
+    if (!msg) { el.classList.remove("show"); return; }
+    el.textContent = msg;
+    el.classList.add("show");
+    el.classList.toggle("err", isErr);
+  }
+
+  function setBar(id, p) {
+    const el = $(id);
+    if (el) el.style.width = p === null ? "0%" : `${Math.max(2, p * 100)}%`;
+  }
+
+  function updateDelta(id, current, first) {
+    const el = $(id);
+    if (!el || first === null || current === null) return;
+    const d = current - first;
+    if (Math.abs(d) < 0.001) { el.textContent = "Δ since load: —"; el.className = "flat"; return; }
+    el.textContent = `Δ since load: ${d > 0 ? "+" : "−"}${(Math.abs(d)*100).toFixed(1)} pts`;
+    el.className = d > 0 ? "up" : "down";
+  }
+
+  function probWord(p) {
+    return !p ? "—" :
+      p >= 0.85 ? "extremely likely" : p >= 0.60 ? "likely" :
+      p >= 0.40 ? "a coin-flip"      : p >= 0.20 ? "an outside chance" :
+      p >= 0.05 ? "a long shot"      : "vanishingly unlikely";
+  }
+
+  // ── KALSHI PARSING ───────────────────────────────────────────────────
+  // Prefer settled result > bid/ask midpoint > last trade price.
+  function mid(m) {
+    const r = (m.result || "").toLowerCase();
+    if (r === "yes") return 1.0;
+    if (r === "no")  return 0.0;
+    const bid = parseFloat(m.yes_bid_dollars);
+    const ask = parseFloat(m.yes_ask_dollars);
+    const lst = parseFloat(m.last_price_dollars);
+    const bidOk = Number.isFinite(bid) && bid >= 0;
+    const askOk = Number.isFinite(ask) && ask > 0 && ask <= 1;
+    if (bidOk && askOk && ask >= bid) return (bid + ask) / 2;
+    if (Number.isFinite(lst) && lst > 0) return lst;
+    if (askOk) return ask;
+    if (bidOk) return bid;
+    return null;
+  }
+
+  // Group flat market list by event_ticker.
+  function byEvent(markets) {
+    const map = new Map();
+    for (const m of markets) {
+      if (!map.has(m.event_ticker)) map.set(m.event_ticker, []);
+      map.get(m.event_ticker).push(m);
+    }
+    return map;
+  }
+
+  // Find the event whose markets mention both teams.
+  function findGame(groups, kA, kB) {
+    for (const [, cs] of groups) {
+      const blob = cs.map(c =>
+        `${c.title||""} ${c.yes_sub_title||""} ${c.no_sub_title||""}`
+      ).join(" ").toLowerCase();
+      if (kA.some(k => blob.includes(k)) && kB.some(k => blob.includes(k)))
+        return cs;
+    }
+    return null;
+  }
+
+  // Extract normalised {win, draw, loss} for teamKeys from a game's contracts.
+  // Robust: if draw contract is missing, infer it from 1 - win - loss.
+  function wdl(contracts, teamKeys) {
+    if (!contracts) return null;
+    let win = null, draw = null, loss = null;
+    for (const c of contracts) {
+      const yes = (c.yes_sub_title || "").toLowerCase();
+      const p = mid(c);
+      if (p === null) continue;
+      if (/draw/i.test(yes))                         draw = p;
+      else if (teamKeys.some(k => yes.includes(k)))  win  = p;
+      else                                            loss = p;
+    }
+    // If one leg is missing, infer it.
+    if (win !== null && draw === null && loss !== null) draw = Math.max(0, 1 - win - loss);
+    if (win !== null && draw !== null && loss === null) loss = Math.max(0, 1 - win - draw);
+    if (win === null || draw === null || loss === null) return null;
+    const s = win + draw + loss;
+    if (s <= 0) return null;
+    return { win: win/s, draw: draw/s, loss: loss/s };
+  }
+
+  // ── POISSON λ INVERSION ──────────────────────────────────────────────
+  // Back-solve (λ_h, λ_a) from observed P(home win), P(draw), P(away win)
+  // by minimising sum-of-squared-errors between theoretical and observed.
+  // Theoretical probabilities from a bivariate Poisson with independence:
+  //   P(i, j) = pois(i; λ_h) × pois(j; λ_a)
+  //   P(win)  = Σ_{i>j} P(i,j)
+  //   P(draw) = Σ_i     P(i,i)
+  //   P(loss) = Σ_{i<j} P(i,j)
+  const MAX_G = 8;
+
+  function poisPMF(lam, k) {
+    let p = Math.exp(-lam);
+    for (let i = 1; i <= k; i++) p *= lam / i;
+    return p;
+  }
+
+  function theoreticalWDL(lh, la) {
+    let w = 0, d = 0, l = 0;
+    for (let i = 0; i <= MAX_G; i++)
+      for (let j = 0; j <= MAX_G; j++) {
+        const p = poisPMF(lh, i) * poisPMF(la, j);
+        if (i > j) w += p; else if (i === j) d += p; else l += p;
+      }
+    return { win: w, draw: d, loss: l };
+  }
+
+  // Grid search then gradient-free refinement (Nelder-Mead style is overkill;
+  // a simple grid at 0.1 resolution is accurate enough for our purposes).
+  function invertWDL(pWin, pDraw, pLoss) {
+    let bestErr = Infinity, bestLh = 1.4, bestLa = 1.0;
+    for (let lh = 0.3; lh <= 3.5; lh += 0.15) {
+      for (let la = 0.3; la <= 3.5; la += 0.15) {
+        const t = theoreticalWDL(lh, la);
+        const err = (t.win - pWin)**2 + (t.draw - pDraw)**2 + (t.loss - pLoss)**2;
+        if (err < bestErr) { bestErr = err; bestLh = lh; bestLa = la; }
+      }
+    }
+    // Refine around the best point at finer resolution.
+    for (let lh = bestLh - 0.15; lh <= bestLh + 0.15; lh += 0.02) {
+      for (let la = bestLa - 0.15; la <= bestLa + 0.15; la += 0.02) {
+        if (lh <= 0 || la <= 0) continue;
+        const t = theoreticalWDL(lh, la);
+        const err = (t.win - pWin)**2 + (t.draw - pDraw)**2 + (t.loss - pLoss)**2;
+        if (err < bestErr) { bestErr = err; bestLh = lh; bestLa = la; }
+      }
+    }
+    return { home: bestLh, away: bestLa };
+  }
+
+  // ── WREXHAM GD MODEL ─────────────────────────────────────────────────
+  function gdDist(lams) {
+    const dist = new Map();
+    for (let i = 0; i <= MAX_G; i++)
+      for (let j = 0; j <= MAX_G; j++) {
+        const d = i - j, p = poisPMF(lams.home, i) * poisPMF(lams.away, j);
+        dist.set(d, (dist.get(d) || 0) + p);
+      }
+    return dist;
+  }
+
+  function condGDDist(dist, result) {
+    const out = new Map(); let tot = 0;
+    for (const [d, p] of dist) {
+      const ok = result==="win" ? d>0 : result==="draw" ? d===0 : d<0;
+      if (ok) { out.set(d, p); tot += p; }
+    }
+    if (!tot) return new Map();
+    for (const [d, p] of out) out.set(d, p/tot);
+    return out;
+  }
+
+  function condGSDist(lams, result) {
+    const out = new Map(); let tot = 0;
+    for (let i = 0; i <= MAX_G; i++)
+      for (let j = 0; j <= MAX_G; j++) {
+        const d = i - j, p = poisPMF(lams.home, i) * poisPMF(lams.away, j);
+        const ok = result==="win" ? d>0 : result==="draw" ? d===0 : d<0;
+        if (ok) { out.set(i, (out.get(i)||0)+p); tot += p; }
+      }
+    if (!tot) return new Map();
+    for (const [g, p] of out) out.set(g, p/tot);
+    return out;
+  }
+
+  // P(A finishes above B) given pre-match state, W/D/L for each game,
+  // and Poisson λ derived from those same W/D/L markets.
+  function pAbove(stA, stB, wA, wB, lA, lB, h2hFavoursA) {
+    if (!wA || !wB) return null;
+    const pts = { win:3, draw:1, loss:0 };
+    const dA = gdDist(lA), dB = gdDist(lB);
+    let total = 0;
+    for (const ra of ["win","draw","loss"]) {
+      for (const rb of ["win","draw","loss"]) {
+        const jp = wA[ra] * wB[rb];
+        if (jp <= 0) continue;
+        const pA = stA.pts + pts[ra], pB = stB.pts + pts[rb];
+        if (pA > pB) { total += jp; continue; }
+        if (pA < pB) continue;
+        // Points tied → GD
+        const cA = condGDDist(dA, ra), cB = condGDDist(dB, rb);
+        let aW = 0;
+        for (const [dga, pa] of cA) {
+          const gdA = stA.gd + dga;
+          for (const [dgb, pb] of cB) {
+            const gdB = stB.gd + dgb;
+            if (gdA > gdB) { aW += pa*pb; continue; }
+            if (gdA < gdB) continue;
+            // GD tied → goals scored
+            const gsA = condGSDist(lA, ra), gsB = condGSDist(lB, rb);
+            for (const [ga, pga] of gsA) {
+              const fsA = stA.gs + ga;
+              for (const [gb, pgb] of gsB) {
+                const fsB = stB.gs + gb;
+                if (fsA > fsB) aW += pa*pb*pga*pgb;
+                else if (fsA===fsB && h2hFavoursA) aW += pa*pb*pga*pgb;
+              }
+            }
+          }
+        }
+        total += jp * aW;
+      }
+    }
+    return total;
+  }
+
+  // ── RENDER: MILLWALL ─────────────────────────────────────────────────
+  function renderMill(pMillWin, pIpsWin) {
+    const pNoIps = pIpsWin === null ? null : 1 - pIpsWin;
+    const combined = pMillWin !== null && pNoIps !== null
+      ? pMillWin * pNoIps : null;
+
+    $("mill-leg1-pct").textContent  = pct(pMillWin);
+    setBar("mill-leg1-bar", pMillWin);
+    $("mill-leg1-note").textContent = pMillWin === null
+      ? "Market not found — may not be open yet or already settled."
+      : `P(Millwall win) · Kalshi midpoint`;
+
+    $("mill-leg2-pct").textContent  = pct(pNoIps);
+    setBar("mill-leg2-bar", pNoIps);
+    $("mill-leg2-note").textContent = pIpsWin === null
+      ? "Market not found."
+      : `1 − P(Ipswich win) = 1 − ${pct(pIpsWin)}`;
+
+    $("mill-combined-pct").textContent = pct(combined);
+    setBar("mill-combined-bar", combined);
+
+    if (combined !== null) {
+      $("mill-big-pct").innerHTML =
+        `${pct(combined).replace("%","")}<span class="pct">%</span>`;
+      $("mill-raw").textContent = `Joint prob: ${combined.toFixed(3)}`;
+      $("mill-raw").className = "flat";
+      if (firstMill === null) firstMill = combined;
+      updateDelta("mill-delta", combined, firstMill);
+      $("mill-statement").innerHTML =
+        `Live Kalshi match markets give Millwall automatic promotion odds of ` +
+        `<span class="pct-inline">${pct(combined)}</span> — ` +
+        `<em>${probWord(combined)}</em>. ` +
+        `Needs a Millwall win <em>and</em> Ipswich to drop points.`;
+    } else {
+      $("mill-big-pct").innerHTML = `— <span class="pct">%</span>`;
+      $("mill-statement").textContent =
+        "Match markets not found — may be pre-kick-off or already settled.";
+    }
+  }
+
+  // ── RENDER: WREXHAM ──────────────────────────────────────────────────
+  function renderWrex(wW, wH, wD, lW, lH, lD) {
+    const setWDL = (pre, w) => {
+      $(pre+"win").textContent  = w ? pct(w.win)  : "—";
+      $(pre+"draw").textContent = w ? pct(w.draw) : "—";
+      $(pre+"loss").textContent = w ? pct(w.loss) : "—";
+    };
+    setWDL("wrex-w-", wW);
+    setWDL("wrex-h-", wH);
+    setWDL("wrex-d-", wD);
+
+    const pH = pAbove(WREX, HUL, wW, wH, lW, lH, false);
+    const pD = pAbove(WREX, DER, wW, wD, lW, lD, false);
+    const combined = pH !== null && pD !== null ? pH * pD : null;
+
+    $("wrex-vs-hul-pct").textContent = pct(pH);
+    setBar("wrex-vs-hul-bar", pH);
+    $("wrex-vs-der-pct").textContent = pct(pD);
+    setBar("wrex-vs-der-bar", pD);
+    $("wrex-combined-pct").textContent = pct(combined);
+    setBar("wrex-combined-bar", combined);
+
+    if (combined !== null) {
+      $("wrex-big-pct").innerHTML =
+        `${pct(combined).replace("%","")}<span class="pct">%</span>`;
+      $("wrex-raw").textContent = `Joint prob: ${combined.toFixed(3)}`;
+      $("wrex-raw").className = "flat";
+      if (firstWrex === null) firstWrex = combined;
+      updateDelta("wrex-delta", combined, firstWrex);
+      $("wrex-statement").innerHTML =
+        `Three Kalshi markets + market-derived Poisson GD model gives Wrexham ` +
+        `<span class="pct-inline">${pct(combined)}</span> ` +
+        `to reach the playoffs — <em>${probWord(combined)}</em>.`;
+    } else {
+      $("wrex-big-pct").innerHTML = `— <span class="pct">%</span>`;
+      $("wrex-statement").textContent =
+        "Match markets not found — may be pre-kick-off or already settled.";
+    }
+  }
+
+  // ── MAIN RENDER ──────────────────────────────────────────────────────
+  function render(markets) {
+    if (!markets.length) {
+      setStatus("No markets returned from Kalshi.", true);
+      return;
+    }
+
+    const groups = byEvent(markets);
+    const K = {
+      mil: ["millwall"],        oxu: ["oxford"],
+      ips: ["ipswich"],         qpr: ["qpr","queens park"],
+      wxm: ["wrexham"],         bor: ["middlesbrough","boro"],
+      hul: ["hull"],            nor: ["norwich"],
+      der: ["derby"],           shu: ["sheffield united","sheffield utd","sheff utd","sheff u"],
+    };
+
+    const millGame = findGame(groups, K.mil, K.oxu);
+    const ipsGame  = findGame(groups, K.ips, K.qpr);
+    const wxmGame  = findGame(groups, K.wxm, K.bor);
+    const hulGame  = findGame(groups, K.hul, K.nor);
+    const derGame  = findGame(groups, K.der, K.shu);
+
+    const wdlM = wdl(millGame, K.mil);
+    const wdlI = wdl(ipsGame,  K.ips);
+    const wdlW = wdl(wxmGame,  K.wxm);
+    const wdlH = wdl(hulGame,  K.hul);
+    const wdlD = wdl(derGame,  K.der);
+
+    // Back-solve λ from W/D/L for each game. These are used only in the
+    // Wrexham GD model. If a game isn't found, fall back to season averages.
+    const lW = wdlW ? invertWDL(wdlW.win, wdlW.draw, wdlW.loss) : { home:1.45, away:1.55 };
+    const lH = wdlH ? invertWDL(wdlH.win, wdlH.draw, wdlH.loss) : { home:1.35, away:1.40 };
+    const lD = wdlD ? invertWDL(wdlD.win, wdlD.draw, wdlD.loss) : { home:1.50, away:1.05 };
+
+    renderMill(wdlM ? wdlM.win : null, wdlI ? wdlI.win : null);
+    renderWrex(wdlW, wdlH, wdlD, lW, lH, lD);
+
+    setStatus("");
+    $("last-updated").textContent =
+      "Updated " + new Date().toLocaleTimeString("en-GB", { hour12: false });
+  }
+
+  // ── FETCH: merge open + closed markets ───────────────────────────────
+  async function load() {
+    if (PROXY.includes("YOURNAME")) {
+      setStatus("Paste your Cloudflare Worker URL into PROXY.", true);
+      return;
+    }
+    try {
+      // Fetch open and closed in parallel, merge and deduplicate by ticker.
+      const [rO, rC] = await Promise.all([
+        fetch(URL_OPEN,   { cache: "no-store" }),
+        fetch(URL_CLOSED, { cache: "no-store" }),
+      ]);
+      const open   = rO.ok ? (await rO.json()).markets || [] : [];
+      const closed = rC.ok ? (await rC.json()).markets || [] : [];
+      const seen = new Set();
+      const merged = [...open, ...closed].filter(m => {
+        if (seen.has(m.ticker)) return false;
+        seen.add(m.ticker); return true;
+      });
+      render(merged);
+    } catch (err) {
+      console.error(err);
+      setStatus(`Fetch failed (${err.message}). Retrying…`, true);
+    }
+  }
+
+  load();
+  setInterval(load, POLL_MS);
+})();
+</script>
+</html>
